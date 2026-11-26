@@ -36,6 +36,18 @@ _POLICY_QUESTION_RE = re.compile(
     r"|(?:được|có\s+được)\s+(?:đổi|trả|hoàn)\b",
     re.IGNORECASE,
 )
+# A request to return goods ("muốn trả", "trả lại", "đổi trả", "trả được không"), not other uses of "trả":
+# paying ("trả tiền", "trả góp", "trả phí") or answering ("trả lời").
+_RETURN_REQUEST_RE = re.compile(
+    r"đổi\s+trả|hoàn\s+trả"
+    r"|\btrả\s+(?:lại|hàng|về|được)\b"
+    r"|\b(?:muốn|cần|xin|định|được|cho\s+(?:tôi|mình|em))\s+trả\b(?!\s+(?:lời|tiền|góp|phí|trước|sau|thêm))",
+    re.IGNORECASE,
+)
+RETURN_DECISION_TOOLS = frozenset({"check_return_eligibility", "propose_return"})
+# Results that settle a return requirement although they carry an error code: the slot guard asking the customer
+# for a missing detail. Business refusals (not delivered, window passed ...) settle it too, see _settles_return.
+_RETURN_SETTLED_CODES = frozenset({"MISSING_SLOT"})
 
 # Tools whose result gives the model real data about an order.
 ORDER_DATA_TOOLS = frozenset(
@@ -141,6 +153,21 @@ def derive_requirements(user_text: str, available_tools: Iterable[str]) -> list[
                 )
             )
 
+    # Whether goods can be returned is decided by the domain from the item's flags and the dates, never from the
+    # product name or the policy text (seen: underwear refused from its name, without the eligibility check).
+    return_tools = RETURN_DECISION_TOOLS & tools
+    if return_tools and codes and _RETURN_REQUEST_RE.search(user_text):
+        for code in sorted(codes):
+            requirements.append(
+                ToolRequirement(
+                    key=f"return:{code}",
+                    accepted_tools=frozenset(return_tools),
+                    order_code=code,
+                    reason=f"Khách muốn trả hàng của đơn {code}; điều kiện trả do check_return_eligibility quyết định.",
+                    preferred_tool="check_return_eligibility",
+                )
+            )
+
     if "search_policy" in tools and _POLICY_QUESTION_RE.search(user_text):
         requirements.append(
             ToolRequirement(
@@ -177,6 +204,13 @@ def refusal_requirements(executed_calls: list[dict[str, Any]], available_tools: 
     ]
 
 
+def _settles_return(result: Any) -> bool:
+    """A failed-looking eligibility result that still answers the return question: ask the customer, or refuse."""
+    if not isinstance(result, dict):
+        return False
+    return result.get("error_code") in _RETURN_SETTLED_CODES or refusal_code(result) in BUSINESS_REFUSALS
+
+
 def unmet_requirements(
     requirements: Iterable[ToolRequirement], executed_calls: list[dict[str, Any]]
 ) -> list[ToolRequirement]:
@@ -188,7 +222,7 @@ def unmet_requirements(
             if call.get("tool") not in req.accepted_tools:
                 continue
             outcome = _outcome_of(call)
-            if outcome is ToolOutcome.FAILED:
+            if outcome is ToolOutcome.FAILED and not (req.key.startswith("return:") and _settles_return(call.get("result"))):
                 continue
             # DEFINITIVE_NEGATIVE ("no clause found") lets the agent say so honestly; verify_output
             # still blocks any citation or number that has no successful evidence behind it.
@@ -217,6 +251,12 @@ def steering_message(unmet: list[ToolRequirement]) -> str:
             lines.append(
                 "- escalate_to_human với reason_code phù hợp (customer_request, payment_dispute, "
                 "complaints, complex_case) và summary tóm tắt khách quan."
+            )
+        elif req.key.startswith("return:"):
+            lines.append(
+                f"- check_return_eligibility(order_code='{req.order_code}', item_ids lấy từ get_order, reason_code theo "
+                "lời khách, reason_quote nếu khách tự mô tả) để hệ thống quyết định có trả được không; không tự kết "
+                "luận từ tên sản phẩm hay văn bản chính sách. Thiếu món hoặc lý do thì hệ thống sẽ báo để hỏi khách."
             )
         elif req.order_code:
             lines.append(f"- {req.preferred_tool}(order_code='{req.order_code}') để lấy dữ liệu thật của đơn.")

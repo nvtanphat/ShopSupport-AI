@@ -43,3 +43,19 @@ Các kịch bản lúc chạy chỉ có tag `multiturn`, trong khi cổng đếm
 ## Thay M-09 (2026-11-26)
 
 Lỗi của M-09 được dùng để sửa agent, nên theo quy tắc của các tập độc lập M-09 chuyển sang `evals/scenarios/` (tag `former_multiturn`) và M-11 thay nó. M-11 được viết và commit trước khi chạy Gemini trên bản sửa. Món hàng của M-11 có tên trung tính (áo sơ mi) nhưng mang cờ `final_sale`, nên chỉ công cụ kiểm tra điều kiện mới biết nó bị loại trừ; suy từ tên như lỗi của M-09 sẽ trượt.
+
+## Sau khi sửa (2026-11-26)
+
+Sửa agent theo lỗi của M-09, ở lớp tất định chứ không chỉ trong prompt (`agent/tool_requirements.py`, `agent/nodes/agent.py`):
+- Khách nói muốn trả hàng và nêu mã đơn thì câu trả lời chỉ được hiển thị sau khi `check_return_eligibility` (hoặc `propose_return`) đã chạy cho đơn đó. Thiếu món hay lý do thì bộ kiểm tham số trả `MISSING_SLOT`, và kết quả đó cũng đáp ứng yêu cầu, để agent hỏi khách thay vì bị ép gọi mãi.
+- Chỉ thiếu lý do thì hệ thống vẫn hỏi khách, kèm kết luận chỉ-đọc của miền nghiệp vụ cho trường hợp đổi ý. Nhờ vậy câu trả lời nói được "hàng xả kho không trả được nếu đổi ý [POL-RETURN-03], nếu hàng lỗi thì vẫn trả được" thay vì chỉ hỏi.
+
+Gemini trên code đã sửa:
+
+| Tập | Kết quả |
+|---|---|
+| Tập này (M-11 thay M-09), k=3, run `langgraph_multiturn_20261126_155800` | 30/30, mọi cổng đạt (multi-turn follow-up 1.000, tool selection 45/45) |
+| M-09 (nay ở tập phát triển), k=3 | 3/3 |
+| Tập phát triển, 68 kịch bản, k=1, run `langgraph_20261126_153950` | 67/68, mọi cổng đạt |
+
+Lần trượt duy nhất ở tập phát triển là RET-EXCL-002 (đạt 3/4 lần trên code cuối): câu trả lời đúng nội dung nhưng thiếu thẻ trích dẫn `[POL-RETURN-03]`. Thay đổi đầu tiên (chỉ có yêu cầu gọi công cụ) làm kịch bản này trượt 3/3 vì agent chỉ hỏi lý do mà không nói hàng bị loại trừ; thay đổi thứ hai sửa điều đó.
