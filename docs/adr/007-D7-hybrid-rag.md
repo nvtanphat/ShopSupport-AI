@@ -24,6 +24,8 @@ Quyết định gốc (pgvector + full-text trong PostgreSQL) **chưa được c
 - Bước 2: cross-encoder `bge-reranker-v2-m3` xếp hạng lại tối đa 10 ứng viên; điểm tốt nhất dưới ngưỡng thì từ chối.
 - Vector lưu ở cột `embedding` kèm `embedding_model`; đổi model thì `index-policies` embed lại, và retrieval lùi về BM25 thay vì so vector khác model.
 
+**Cập nhật 2026-11-26: bước vector tắt mặc định.** RRF chỉ sắp xếp lại các ứng viên BM25, không thêm ứng viên; với 10 điều khoản BM25 không bao giờ trả quá 10 ứng viên mà reranker chấm, nên reranker thấy cùng một tập dù có vector hay không. Đo bằng `evals.retrieval.holdout` (có và không có `RETRIEVAL_EMBEDDING_ENABLED`): mọi chỉ số giống hệt trên cả tập hiệu chỉnh và tập holdout (holdout Recall@1 0,929, Recall@4 0,982, từ chối 20/20 câu ngoài phạm vi). Bước vector tốn khoảng 0,6 GB ổ đĩa, 1,1 GB RAM và 150 ms mỗi câu hỏi, nên tắt; mã giữ lại để bật khi kho có nhiều điều khoản hơn số ứng viên của reranker.
+
 **Đã đo và không đổi:** số ứng viên của reranker. Trên cả hai tập câu hỏi (ngưỡng hiệu chỉnh riêng cho từng cấu hình):
 
 | Ứng viên | Giây mỗi truy vấn | Holdout Recall@1 | Holdout Recall@4 | Từ chối câu ngoài phạm vi |

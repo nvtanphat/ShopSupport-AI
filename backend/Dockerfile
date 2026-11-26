@@ -21,12 +21,10 @@ COPY pyproject.toml /app/
 # The `rerank` extra (fastembed) serves policy lookups: the reranker and the embedding model in config/app.yaml.
 RUN uv pip install --system -r pyproject.toml --extra rerank
 
-# Bake the models into the image so the first policy lookup does not download them:
-# the cross-encoder (570 MB) and the int8 BGE-M3 embedding model (570 MB, retrieval.embedding in config/app.yaml).
+# Bake the cross-encoder (570 MB) into the image so the first policy lookup does not download it. The BGE-M3
+# embedding model is not baked: retrieval.embedding is off by default (config/app.yaml); turning it on downloads it.
 ENV FASTEMBED_CACHE_PATH=/models
 RUN python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='BAAI/bge-reranker-v2-m3-int8')"
-COPY backend/src/shopagent/rag/bge_m3.py /tmp/bge_m3.py
-RUN cd /tmp && python -c "import bge_m3; bge_m3.prefetch()" && rm /tmp/bge_m3.py
 
 # Copy source code, config and migrations
 COPY backend/src/ /app/backend/src/

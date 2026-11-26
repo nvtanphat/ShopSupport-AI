@@ -98,7 +98,7 @@ Số thứ tự tin nhắn và sự kiện SSE cấp phát nguyên tử bằng k
 
 ## Tìm kiếm chính sách (chi tiết)
 
-Hai bước. Bước lấy ứng viên là hybrid: BM25 trên điều khoản (câu hỏi đã chuẩn hóa viết tắt, số tiền) gộp theo hạng (RRF) với độ tương đồng của vector `BAAI/bge-m3` (câu hỏi đã khôi phục dấu). BM25 vẫn là cổng: không từ nào khớp thì trả "không có bằng chứng", vì mô hình vector luôn tìm ra một điều khoản gần nhất kể cả với câu hỏi về thời tiết. Bước hai là cross-encoder `BAAI/bge-reranker-v2-m3-int8` xếp hạng lại. Tắt embedding (`RETRIEVAL_EMBEDDING_ENABLED=false`) thì bước một chỉ còn BM25. Câu hỏi có điểm dưới ngưỡng `retrieval.reranker.min_score` trong [config/app.yaml](../config/app.yaml) bị từ chối thay vì trả điều khoản gần đúng.
+Hai bước. Bước lấy ứng viên là BM25 trên điều khoản (câu hỏi đã chuẩn hóa viết tắt, số tiền); tùy chọn gộp theo hạng (RRF) với độ tương đồng của vector BGE-M3 (câu hỏi đã khôi phục dấu), tắt mặc định vì với 10 điều khoản nó không đổi kết quả ([ADR-007](adr/007-D7-hybrid-rag.md)). BM25 vẫn là cổng: không từ nào khớp thì trả "không có bằng chứng", vì mô hình vector luôn tìm ra một điều khoản gần nhất kể cả với câu hỏi về thời tiết. Bước hai là cross-encoder `BAAI/bge-reranker-v2-m3-int8` xếp hạng lại. Tắt embedding (`RETRIEVAL_EMBEDDING_ENABLED=false`) thì bước một chỉ còn BM25. Câu hỏi có điểm dưới ngưỡng `retrieval.reranker.min_score` trong [config/app.yaml](../config/app.yaml) bị từ chối thay vì trả điều khoản gần đúng.
 
 ## 11 công cụ nghiệp vụ
 
