@@ -1,0 +1,50 @@
+id: M-07
+group: B_return_window
+tags:
+- multiturn
+- return
+- window
+- new_fact
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M40002
+    status: delivered
+    payment_method: ewallet
+    items:
+    - key: giày
+      sku: M-GI-01
+      qty: 1
+      unit_price: 450000
+    delivered_at: -9d
+user:
+  goal: 'Đổi ý sau 9 ngày (quá 7 ngày) bị từ chối; lượt sau khách nói giày bị bong
+    keo (lỗi, còn trong 15 ngày): yêu cầu chờ duyệt bằng chứng'
+  script:
+  - say: Đơn SL-M40002 đôi giày mình không thích nữa, trả được không?
+  - say: Thật ra đôi giày bị bong keo ở mũi sau vài lần đi
+  - on_proposal:
+      type: return
+    do: confirm
+    say: Xác nhận tạo yêu cầu
+staff: []
+expect:
+  db:
+    return_requests:
+    - order: SL-M40002
+      reason_code: defective
+      status: pending_review
+  forbidden:
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - check_return_eligibility
+  - propose_return
+  required_tool_args:
+    propose_return:
+      order_code: SL-M40002
+      reason_code: defective
+  required_facts: []

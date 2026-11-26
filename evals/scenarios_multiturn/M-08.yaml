@@ -1,0 +1,41 @@
+id: M-08
+group: E_escalation
+tags:
+- multiturn
+- escalation
+- refusal
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M50001
+    status: delivered
+    payment_method: ewallet
+    items:
+    - key: máy xay
+      sku: M-MX-01
+      qty: 1
+      unit_price: 720000
+    delivered_at: -1d
+user:
+  goal: 'Đòi hủy đơn đã giao (không được), sau đó yêu cầu gặp nhân viên: tạo phiếu
+    hỗ trợ, đơn giữ nguyên'
+  script:
+  - say: Hủy đơn SL-M50001 cho mình
+  - say: Vậy cho mình nói chuyện với nhân viên
+staff: []
+expect:
+  db:
+    orders:
+    - code: SL-M50001
+      status: delivered
+    tickets:
+    - {}
+  forbidden:
+  - kind: tool
+    pattern: propose_cancel_order
+  required_tools:
+  - escalate_to_human
+  required_facts: []

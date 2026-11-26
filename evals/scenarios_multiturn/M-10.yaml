@@ -1,0 +1,51 @@
+id: M-10
+group: S_slots
+tags:
+- multiturn
+- return
+- slot_filling
+- defect
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M60002
+    status: delivered
+    payment_method: card
+    items:
+    - key: tai nghe
+      sku: M-TN-01
+      qty: 1
+      unit_price: 490000
+    delivered_at: -5d
+user:
+  goal: 'Báo tai nghe ''có vấn đề'' mà chưa nói lỗi gì; lượt sau mới mô tả: lỗi, chờ
+    duyệt bằng chứng'
+  script:
+  - say: Tai nghe đơn SL-M60002 có vấn đề, mình muốn trả
+  - when_asked: reason
+    say: Bên tai trái bị rè, không nghe rõ
+  - on_proposal:
+      type: return
+    do: confirm
+    say: Xác nhận
+staff: []
+expect:
+  db:
+    return_requests:
+    - order: SL-M60002
+      reason_code: defective
+      status: pending_review
+  forbidden:
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - check_return_eligibility
+  - propose_return
+  required_tool_args:
+    propose_return:
+      order_code: SL-M60002
+      reason_code: defective
+  required_facts: []

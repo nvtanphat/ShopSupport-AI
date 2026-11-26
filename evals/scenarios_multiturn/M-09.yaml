@@ -1,0 +1,41 @@
+id: M-09
+group: B_return_exclusion
+tags:
+- multiturn
+- return
+- exclusion
+- refusal
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M60001
+    status: delivered
+    payment_method: ewallet
+    items:
+    - key: đồ lót
+      sku: M-DL-01
+      qty: 1
+      unit_price: 150000
+      flags:
+      - hygiene
+    delivered_at: -2d
+user:
+  goal: 'Đồ lót trả vì đổi ý (loại trừ), lượt sau hỏi lại vì sao: không tạo yêu cầu'
+  script:
+  - say: Mình muốn trả bộ đồ lót đơn SL-M60001, mua về không thích
+  - say: Sao lại không được, hàng còn mới mà?
+staff: []
+expect:
+  db:
+    return_requests: []
+  forbidden:
+  - kind: tool
+    pattern: propose_return
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - check_return_eligibility
+  required_facts: []

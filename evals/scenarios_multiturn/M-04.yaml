@@ -1,0 +1,55 @@
+id: M-04
+group: C_cancellation
+tags:
+- multiturn
+- cancel
+- correction
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M20002
+    status: confirmed
+    payment_method: ewallet
+    items:
+    - key: bàn phím
+      sku: M-BP-01
+      qty: 1
+      unit_price: 650000
+  - code: SL-M20003
+    status: confirmed
+    payment_method: ewallet
+    items:
+    - key: chuột
+      sku: M-CH-01
+      qty: 1
+      unit_price: 320000
+user:
+  goal: 'Nói nhầm mã đơn, từ chối thẻ của đơn sai rồi sửa lại: chỉ đơn đúng bị hủy'
+  script:
+  - say: Hủy đơn SL-M20002 giúp mình
+  - on_proposal:
+      type: cancel_order
+    do: cancel
+    say: À mình nhầm, đơn cần hủy là SL-M20003 cơ, đơn kia giữ lại
+  - on_proposal:
+      type: cancel_order
+    do: confirm
+    say: Đúng rồi, xác nhận hủy
+staff: []
+expect:
+  db:
+    orders:
+    - code: SL-M20002
+      status: confirmed
+    - code: SL-M20003
+      status: cancelled
+  required_tools:
+  - propose_cancel_order
+  required_tool_args:
+    propose_cancel_order:
+      order_code: SL-M20003
+  required_facts: []
+  forbidden: []
