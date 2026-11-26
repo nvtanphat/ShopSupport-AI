@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { HeroBanner } from '../../src/features/chat/components/HeroBanner';
 import { MessageItem } from '../../src/features/chat/components/MessageItem';
@@ -146,6 +146,20 @@ describe('OrderContextSidebar', () => {
     expect(screen.getByText('Quần jean')).toBeInTheDocument();
     expect(screen.getByText('Ví điện tử')).toBeInTheDocument();
     expect(screen.getByText('Đã giao')).toBeInTheDocument();
+  });
+
+  it('shows the new status after an action without a page reload', async () => {
+    const getOrder = vi
+      .spyOn(api, 'getOrder')
+      .mockResolvedValueOnce({ ...order, status: 'confirmed', delivered_at: null })
+      .mockResolvedValueOnce({ ...order, status: 'cancelled', delivered_at: null });
+    render(<OrderContextSidebar {...props} orderCode="SL-ABC123" />);
+    expect(await screen.findByText('Đã xác nhận')).toBeInTheDocument();
+
+    act(() => clearOrderCache()); // what the action card does after the customer confirms
+    expect(await screen.findByText('Đã hủy')).toBeInTheDocument();
+    expect(screen.queryByText('Đã xác nhận')).not.toBeInTheDocument();
+    expect(getOrder).toHaveBeenCalledTimes(2);
   });
 
   it('tells a guest how to unlock an order that could not be loaded', async () => {
