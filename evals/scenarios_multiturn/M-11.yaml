@@ -1,4 +1,4 @@
-id: M-09
+id: M-11
 group: B_return_exclusion
 tags:
 - multiturn
@@ -12,26 +12,28 @@ principal:
   email: multiturn.customer@example.test
 fixtures:
   orders:
-  - code: SL-M60001
+  - code: SL-M60003
     status: delivered
     payment_method: ewallet
+    delivered_at: -3d
     items:
-    - key: đồ lót
-      sku: M-DL-01
+    - key: áo sơ mi linen
+      sku: M-SM-01
       qty: 1
-      unit_price: 150000
+      unit_price: 320000
       flags:
-      - hygiene
-    delivered_at: -2d
+      - final_sale
 user:
-  goal: 'Đồ lót trả vì đổi ý (loại trừ), lượt sau hỏi lại vì sao: không tạo yêu cầu'
+  goal: 'Áo sơ mi mua đợt xả kho (final_sale, tên sản phẩm không cho biết), trả vì
+    đổi ý; lượt sau hỏi lại vì sao: không tạo yêu cầu'
   script:
-  - say: Mình muốn trả bộ đồ lót đơn SL-M60001, mua về không thích
-  - say: Sao lại không được, hàng còn mới mà?
+  - say: Mình muốn trả cái áo sơ mi đơn SL-M60003, mặc thấy không hợp
+  - say: Áo còn nguyên tem mà, sao không trả được?
 staff: []
 expect:
   db:
     return_requests: []
+  required_facts: []
   forbidden:
   - kind: tool
     pattern: propose_return
@@ -39,4 +41,3 @@ expect:
     pattern: đã hoàn tiền
   required_tools:
   - check_return_eligibility
-  required_facts: []

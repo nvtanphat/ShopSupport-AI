@@ -13,7 +13,7 @@ Mỗi kịch bản có 2–4 lượt khách, mỗi lượt một phần thông t
 | M-05 | "Hủy nó được không" chỉ đơn ở lượt trước; đơn đang giao không hủy được |
 | M-07 | Đổi ý quá 7 ngày bị từ chối, lượt sau khách báo lỗi (còn trong 15 ngày) |
 | M-08 | Bị từ chối rồi xin gặp nhân viên |
-| M-09 | Hàng loại trừ khi đổi ý, khách hỏi lại vì sao |
+| M-11 | Hàng xả kho mà tên sản phẩm không cho biết, khách hỏi lại vì sao (thay M-09) |
 
 Quy tắc:
 
@@ -39,3 +39,7 @@ Gemini `gemini-3.5-flash-lite`, k=3, commit `866ba79` (run `langgraph_multiturn_
 Chín kịch bản đạt cả 3 lần. M-09 trượt cả 3 lần với cùng một lỗi: agent từ chối đúng và trích đúng `POL-RETURN-03`, nhưng suy ra món hàng là đồ lót từ tên sản phẩm và văn bản chính sách, không gọi `check_return_eligibility` (công cụ đọc cờ loại trừ `hygiene` của sản phẩm). Kết quả đúng ở đây, nhưng một sản phẩm có tên giống đồ lót mà không mang cờ loại trừ sẽ bị từ chối sai. Theo quy tắc 1, lỗi được ghi lại và không sửa theo tập này.
 
 Các kịch bản lúc chạy chỉ có tag `multiturn`, trong khi cổng đếm tag `multi_turn`, nên lần chạy báo cổng này "not verified". Con số trên được tính lại từ chính kết quả đã lưu, chỉ thêm tag; tag đã được thêm vào các file sau lần chạy. Trong lúc chạy gặp 429 (hết hạn mức, bộ xoay khóa chuyển sang khóa khác) và 503 (quá tải, thử lại thành công); không câu trả lời nào là câu dự phòng của agent (các văn bản dự phòng trong `verify_output.py` không xuất hiện trong kết quả đã lưu).
+
+## Thay M-09 (2026-11-26)
+
+Lỗi của M-09 được dùng để sửa agent, nên theo quy tắc của các tập độc lập M-09 chuyển sang `evals/scenarios/` (tag `former_multiturn`) và M-11 thay nó. M-11 được viết và commit trước khi chạy Gemini trên bản sửa. Món hàng của M-11 có tên trung tính (áo sơ mi) nhưng mang cờ `final_sale`, nên chỉ công cụ kiểm tra điều kiện mới biết nó bị loại trừ; suy từ tên như lỗi của M-09 sẽ trượt.
