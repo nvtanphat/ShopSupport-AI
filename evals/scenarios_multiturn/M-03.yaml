@@ -1,0 +1,44 @@
+id: M-03
+group: C_cancellation
+tags:
+- multiturn
+- multi_turn
+- cancel
+- decline
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M20001
+    status: confirmed
+    payment_method: ewallet
+    items:
+    - key: nồi chiên
+      sku: M-NC-01
+      qty: 1
+      unit_price: 990000
+user:
+  goal: 'Yêu cầu hủy, thấy thẻ đề xuất thì đổi ý không hủy nữa: đơn giữ nguyên'
+  script:
+  - say: Hủy giúp mình đơn SL-M20001
+  - on_proposal:
+      type: cancel_order
+    do: cancel
+    say: Thôi mình suy nghĩ lại, không hủy nữa
+staff: []
+expect:
+  db:
+    orders:
+    - code: SL-M20001
+      status: confirmed
+  forbidden:
+  - kind: claim
+    pattern: đã được hủy
+  required_tools:
+  - propose_cancel_order
+  required_tool_args:
+    propose_cancel_order:
+      order_code: SL-M20001
+  required_facts: []

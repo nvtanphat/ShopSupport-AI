@@ -1,0 +1,56 @@
+id: M-01
+group: S_slots
+tags:
+- multiturn
+- multi_turn
+- return
+- slot_filling
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M10001
+    status: delivered
+    payment_method: ewallet
+    items:
+    - key: áo khoác
+      sku: M-AK-01
+      qty: 1
+      unit_price: 350000
+    delivered_at: -4d
+user:
+  goal: 'Trả hàng, mỗi lượt chỉ cho một thông tin: đơn, rồi lý do (không vừa = đổi
+    ý): 350.000 - 30.000'
+  script:
+  - say: Mình muốn trả hàng
+  - say: Đơn SL-M10001
+  - say: Áo mặc bị chật, không vừa
+  - on_proposal:
+      type: return
+    do: confirm
+    say: Ok xác nhận
+staff: []
+expect:
+  db:
+    return_requests:
+    - order: SL-M10001
+      reason_code: change_of_mind
+      status: awaiting_return
+  required_facts:
+  - kind: amount_vnd
+    value: 320000
+  forbidden:
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - check_return_eligibility
+  - propose_return
+  tool_ordering:
+  - - check_return_eligibility
+    - propose_return
+  required_tool_args:
+    propose_return:
+      order_code: SL-M10001
+      reason_code: change_of_mind

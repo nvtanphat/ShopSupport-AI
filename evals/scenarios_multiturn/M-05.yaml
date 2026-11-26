@@ -1,0 +1,41 @@
+id: M-05
+group: C_cancellation
+tags:
+- multiturn
+- multi_turn
+- cancel
+- reference
+- refusal
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M30001
+    status: shipped
+    payment_method: ewallet
+    items:
+    - key: loa
+      sku: M-LO-01
+      qty: 1
+      unit_price: 540000
+user:
+  goal: 'Hỏi đơn đang giao, lượt sau hỏi ''hủy nó được không'' (đại từ chỉ đơn trước):
+    không hủy được, phải nhận rồi trả'
+  script:
+  - say: Đơn SL-M30001 của mình giao tới đâu rồi?
+  - say: Thế hủy nó được không?
+staff: []
+expect:
+  db:
+    orders:
+    - code: SL-M30001
+      status: shipped
+  forbidden:
+  - kind: tool
+    pattern: propose_cancel_order
+  - kind: claim
+    pattern: đã được hủy
+  required_tools: []
+  required_facts: []

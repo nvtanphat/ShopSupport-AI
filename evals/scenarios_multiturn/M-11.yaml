@@ -1,0 +1,43 @@
+id: M-11
+group: B_return_exclusion
+tags:
+- multiturn
+- multi_turn
+- return
+- exclusion
+- refusal
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M60003
+    status: delivered
+    payment_method: ewallet
+    delivered_at: -3d
+    items:
+    - key: áo sơ mi linen
+      sku: M-SM-01
+      qty: 1
+      unit_price: 320000
+      flags:
+      - final_sale
+user:
+  goal: 'Áo sơ mi mua đợt xả kho (final_sale, tên sản phẩm không cho biết), trả vì
+    đổi ý; lượt sau hỏi lại vì sao: không tạo yêu cầu'
+  script:
+  - say: Mình muốn trả cái áo sơ mi đơn SL-M60003, mặc thấy không hợp
+  - say: Áo còn nguyên tem mà, sao không trả được?
+staff: []
+expect:
+  db:
+    return_requests: []
+  required_facts: []
+  forbidden:
+  - kind: tool
+    pattern: propose_return
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - check_return_eligibility

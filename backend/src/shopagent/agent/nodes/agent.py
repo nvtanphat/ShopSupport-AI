@@ -195,6 +195,33 @@ async def _invoke_llm(
         return None
 
 
+async def _with_change_of_mind_verdict(
+    missing: dict[str, Any], name: str, args: dict[str, Any], tool: Any, timeout_s: float
+) -> dict[str, Any]:
+    """When only the return reason is missing, add the domain's verdict for a change of mind.
+
+    The customer is still asked for the reason (a defect may be returnable when a change of mind is not). But if the
+    domain already refuses a change of mind (final sale, hygiene, past 7 days), the assistant can say so with the
+    clause in the same reply instead of only asking. The check reads, never writes; any failure leaves the ask as is.
+    """
+    if name != "check_return_eligibility" or missing.get("slot") != "reason_code" or not args.get("order_code") or not args.get("item_ids"):
+        return missing
+    probe = {k: v for k, v in args.items() if k != "reason_quote"} | {"reason_code": "change_of_mind"}
+    try:
+        verdict = await asyncio.wait_for(tool.ainvoke(probe), timeout=timeout_s)
+    except Exception as exc:
+        logger.warning("change_of_mind_probe_failed error=%s", exc)
+        return missing
+    if not (isinstance(verdict, dict) and verdict.get("eligible") is False):
+        return missing
+    return {
+        **missing,
+        "if_change_of_mind": {k: verdict.get(k) for k in ("eligible", "decision_code", "clause_id", "message")},
+        "message": f"{missing['message']} Hệ thống đã kiểm tra trường hợp đổi ý: không đủ điều kiện (if_change_of_mind, "
+        "kèm điều khoản). Nói rõ điều đó với khách, rồi hỏi sản phẩm có bị lỗi không.",
+    }
+
+
 async def _run_tool_call(
     call: ToolCall,
     tools_by_name: dict[str, Any],
@@ -215,7 +242,7 @@ async def _run_tool_call(
     missing_slot = find_ungrounded_slot(name, args, grounding)
     if missing_slot is not None:
         logger.info("tool_rejected_ungrounded tool=%s reason=%s", name, missing_slot.get("slot") or missing_slot["error_code"])
-        return missing_slot
+        return await _with_change_of_mind_verdict(missing_slot, name, args, tool, tool_timeout_s)
 
     tool_calls_made = sig_counts.get(f"#{name}", 0) + 1
     sig_counts[f"#{name}"] = tool_calls_made

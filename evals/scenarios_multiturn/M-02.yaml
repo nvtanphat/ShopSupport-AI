@@ -1,0 +1,54 @@
+id: M-02
+group: P_policy
+tags:
+- multiturn
+- multi_turn
+- policy
+- return
+- topic_switch
+clock: '2026-11-26T10:00:00+07:00'
+principal:
+  type: customer
+  email: multiturn.customer@example.test
+fixtures:
+  orders:
+  - code: SL-M10002
+    status: delivered
+    payment_method: ewallet
+    items:
+    - key: váy
+      sku: M-VY-01
+      qty: 1
+      unit_price: 260000
+    delivered_at: -2d
+user:
+  goal: 'Hỏi phí trả hàng đổi ý trước, lượt sau mới quyết định trả: 260.000 - 30.000'
+  script:
+  - say: Trả hàng vì đổi ý thì có mất phí gì không shop?
+  - say: Vậy mình trả cái váy đơn SL-M10002 nhé, mặc lên không hợp
+  - on_proposal:
+      type: return
+    do: confirm
+    say: Xác nhận
+staff: []
+expect:
+  db:
+    return_requests:
+    - order: SL-M10002
+      reason_code: change_of_mind
+      status: awaiting_return
+  required_facts:
+  - kind: amount_vnd
+    value: 30000
+  - kind: amount_vnd
+    value: 230000
+  forbidden:
+  - kind: claim
+    pattern: đã hoàn tiền
+  required_tools:
+  - search_policy
+  - propose_return
+  required_tool_args:
+    propose_return:
+      order_code: SL-M10002
+      reason_code: change_of_mind

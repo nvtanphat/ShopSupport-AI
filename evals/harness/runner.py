@@ -61,6 +61,8 @@ SCENARIO_SETS = {
     "holdout": Path("evals/scenarios_holdout"),
     "final": Path("evals/scenarios_final"),
     "acceptance": Path("evals/scenarios_acceptance"),
+    # Multi-turn acceptance (evals/scenarios_multiturn/README.md): the acceptance set has no multi-turn scenario.
+    "multiturn": Path("evals/scenarios_multiturn"),
 }
 EVAL_DB_PATH = Path("evals/results/eval_fixtures.sqlite")
 
