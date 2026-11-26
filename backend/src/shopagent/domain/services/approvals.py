@@ -18,6 +18,7 @@ from shopagent.domain.models.enums import (
     ReturnStatus,
 )
 from shopagent.domain.policies.rules import PolicyRules
+from shopagent.domain.services.cancellations import CancellationService
 from shopagent.domain.state_machines import (
     transition_approval_status,
     transition_order_status,
@@ -100,7 +101,8 @@ class ApprovalService:
         if not principal.is_staff and principal.role != PrincipalRole.SYSTEM:
             raise ForbiddenError("Chỉ nhân viên mới có quyền thực hiện phê duyệt.", error_code="STAFF_REQUIRED")
 
-        approval = await self.approval_repo.get_by_id(approval_id)
+        # Locked so that two staff members deciding at once are serialised: the second sees the first decision.
+        approval = await self.approval_repo.get_for_update(approval_id)
         if not approval:
             raise NotFoundError(f"Không tìm thấy yêu cầu phê duyệt {approval_id}.", error_code="APPROVAL_NOT_FOUND")
 
@@ -194,12 +196,15 @@ class ApprovalService:
                 )
 
         elif approval.subject_type == "cancellation":
+            await self.order_repo.lock(approval.subject_id)
             order = await self.order_repo.get_by_id(approval.subject_id)
             if order:
                 prev_order_status = order.status
                 if target_status == ApprovalStatus.APPROVED.value:
                     transition_order_status(order, OrderStatus.CANCELLED.value)
                     await self.order_repo.save(order)
+                    # The customer paid for an order that will not ship: refund it as self-service cancellation does.
+                    await CancellationService(self.session).refund_cancelled_order(order)
                 await self.audit_repo.log(
                     actor_type="staff",
                     actor_id=str(staff_id or "system"),

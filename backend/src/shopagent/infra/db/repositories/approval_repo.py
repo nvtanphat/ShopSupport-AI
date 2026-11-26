@@ -20,6 +20,17 @@ class ApprovalRepository:
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
 
+    async def get_for_update(self, approval_id: uuid.UUID) -> ApprovalRequestModel | None:
+        """The approval with its row locked until the transaction ends, read fresh after waiting for the lock."""
+        stmt = (
+            select(ApprovalRequestModel)
+            .where(ApprovalRequestModel.id == approval_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def list_pending(self, required_role: str | None = None, limit: int = 50) -> list[ApprovalRequestModel]:
         stmt = (
             select(ApprovalRequestModel)

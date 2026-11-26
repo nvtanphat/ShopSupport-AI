@@ -16,6 +16,10 @@ class OrderRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def lock(self, order_id: uuid.UUID) -> None:
+        """Lock the order row until the transaction ends; later reads in this transaction see its latest state."""
+        await self.session.execute(select(OrderModel.id).where(OrderModel.id == order_id).with_for_update())
+
     async def get_by_id(self, order_id: uuid.UUID) -> OrderModel | None:
         stmt = (
             select(OrderModel)

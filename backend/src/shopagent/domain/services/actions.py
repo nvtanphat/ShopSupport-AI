@@ -16,6 +16,7 @@ from shopagent.domain.services.cancellations import CancellationService
 from shopagent.domain.services.returns import ReturnService
 from shopagent.infra.db.repositories.action_repo import ActionRepository
 from shopagent.infra.db.repositories.audit_repo import AuditRepository
+from shopagent.infra.db.repositories.order_repo import OrderRepository
 from shopagent.infra.db.repositories.outbox_repo import OutboxRepository
 from shopagent.infra.db.tables import PendingActionModel
 
@@ -26,6 +27,7 @@ class ActionService:
         self.action_repo = ActionRepository(session)
         self.audit_repo = AuditRepository(session)
         self.outbox_repo = OutboxRepository(session)
+        self.order_repo = OrderRepository(session)
         self.clock = get_clock()
 
     async def get_by_id(self, action_id: uuid.UUID) -> PendingActionModel | None:
@@ -37,8 +39,13 @@ class ActionService:
         action_id: uuid.UUID,
         preview_hash: str,
     ) -> dict[str, Any]:
-        """Confirm a proposed pending action upon customer confirmation."""
-        action = await self.action_repo.get_by_id(action_id)
+        """Confirm a proposed pending action upon customer confirmation.
+
+        Locks the proposal, then its order (always in this order), before checking either: two confirmations of one
+        proposal, or of two proposals for one order, run one after the other, and the later one sees the change the
+        first made instead of cancelling or refunding a second time.
+        """
+        action = await self.action_repo.get_for_update(action_id)
         if not action:
             raise NotFoundError(f"Không tìm thấy đề xuất hành động {action_id}.", error_code="ACTION_NOT_FOUND")
 
@@ -54,6 +61,9 @@ class ActionService:
                 f"Đề xuất không ở trạng thái chờ xác nhận (hiện tại: {action.status}).",
                 error_code="ACTION_NOT_PROPOSED",
             )
+        order_id = (action.payload or {}).get("order_id")
+        if order_id:
+            await self.order_repo.lock(uuid.UUID(str(order_id)))
 
         now = self.clock.now()
         if to_utc(action.expires_at) < to_utc(now):
@@ -86,7 +96,7 @@ class ActionService:
         reason: str | None = None,
     ) -> PendingActionModel:
         """Cancel a pending action proposal."""
-        action = await self.action_repo.get_by_id(action_id)
+        action = await self.action_repo.get_for_update(action_id)
         if not action:
             raise NotFoundError(f"Không tìm thấy đề xuất hành động {action_id}.", error_code="ACTION_NOT_FOUND")
 

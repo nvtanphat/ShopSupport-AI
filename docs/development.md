@@ -3,7 +3,7 @@
 ## Cấu hình đáng chú ý
 
 - `RETRIEVAL_RERANKER_ENABLED=false` tắt reranker (mặc định bật trong `config/app.yaml`; mô hình khoảng 1 GB RAM)
-- `RETRIEVAL_EMBEDDING_ENABLED=false` tắt nửa embedding của bước lấy ứng viên (mặc định bật; BGE-M3 bản int8 cần khoảng 0,6 GB ổ đĩa và 1,1 GB RAM, lần đầu tải mất vài phút; bản đầy đủ `BAAI/bge-m3` cần 2,3 GB ổ đĩa và 1,8 GB RAM). Tắt thì retrieval chỉ còn BM25 + reranker. Đổi model trong `retrieval.embedding.model` rồi chạy `index-policies` để embed lại.
+- `RETRIEVAL_EMBEDDING_ENABLED=true` bật nửa embedding của bước lấy ứng viên (mặc định tắt vì với 10 điều khoản nó không đổi kết quả, xem `config/app.yaml`; BGE-M3 bản int8 cần khoảng 0,6 GB ổ đĩa và 1,1 GB RAM, lần đầu tải mất vài phút; bản đầy đủ `BAAI/bge-m3` cần 2,3 GB ổ đĩa và 1,8 GB RAM). Tắt thì retrieval chỉ còn BM25 + reranker. Đổi model trong `retrieval.embedding.model` rồi chạy `index-policies` để embed lại.
 - `GEMINI_API_KEY` nhận nhiều khóa cách nhau bằng dấu phẩy; khóa bị giới hạn tốc độ được nghỉ tạm và hệ thống chuyển sang khóa khác.
 - Hạn mức vòng lặp agent, thời gian chờ và số lần thử lại LLM ở [config/models.yaml](../config/models.yaml).
 - `LOG_LEVEL` (mặc định `INFO`) chỉnh mức log của API. Mỗi lượt agent ghi `agent_turn_done` kèm `llm_s`, `llm_calls`, `tool_s`; mỗi công cụ ghi `tool_done` kèm `ms`. Thời gian một lượt gần như toàn là thời gian gọi Gemini; công cụ và retrieval chỉ vài chục mili giây.

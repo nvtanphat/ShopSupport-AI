@@ -74,11 +74,7 @@ const VIEWPORT = { width: 1200, height: 1000 };
     await confirm.click();
     await page.getByText('Đã xác nhận thành công!').waitFor({ timeout: 30000 });
     mark('confirmedCard');
-    // The app does not refresh the order badge in place after a confirmation (it clears its order cache for the next
-    // load), so the status is shown the way a customer would see it: reload the page, which reads the order again.
-    await page.waitForTimeout(700);
-    mark('reload');
-    await page.reload();
+    // The order views reload by themselves after a confirmation: the badge must turn to "Đã hủy" without a reload.
     await page.getByText('Đã hủy', { exact: true }).first().waitFor({ timeout: 15000 });
     mark('cancelledVisible');
     await page.waitForTimeout(1600);

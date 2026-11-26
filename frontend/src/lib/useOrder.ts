@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { api } from './api';
 import type { OrderDetail } from './types';
 
@@ -12,6 +12,16 @@ export type OrderState =
 const TTL_MS = 30_000;
 const cache = new Map<string, { at: number; promise: Promise<OrderDetail> }>();
 
+// Bumped by clearOrderCache so every mounted order view loads again: after a confirmed cancellation the badge must
+// change without a page reload.
+let generation = 0;
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 export function fetchOrder(code: string): Promise<OrderDetail> {
   const hit = cache.get(code);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.promise;
@@ -22,13 +32,17 @@ export function fetchOrder(code: string): Promise<OrderDetail> {
   return promise;
 }
 
+/** Forget fetched orders and reload the ones on screen (an order changed: a confirmed action, a new turn). */
 export function clearOrderCache(): void {
   cache.clear();
+  generation += 1;
+  listeners.forEach((listener) => listener());
 }
 
 /** Loads one order by code; `null` means "no order selected". Errors are returned, never hidden. */
 export function useOrder(code: string | null): OrderState {
   const [state, setState] = useState<OrderState>({ status: 'idle' });
+  const version = useSyncExternalStore(subscribe, () => generation);
 
   useEffect(() => {
     if (!code) {
@@ -36,7 +50,8 @@ export function useOrder(code: string | null): OrderState {
       return;
     }
     let cancelled = false;
-    setState({ status: 'loading' });
+    // A reload of the order already shown keeps it on screen until the new one arrives.
+    setState((prev) => (prev.status === 'ready' && prev.order.order_code === code ? prev : { status: 'loading' }));
     fetchOrder(code)
       .then((order) => !cancelled && setState({ status: 'ready', order }))
       .catch((err: unknown) =>
@@ -45,7 +60,7 @@ export function useOrder(code: string | null): OrderState {
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, version]);
 
   return state;
 }
