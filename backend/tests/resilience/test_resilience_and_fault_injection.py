@@ -15,12 +15,8 @@ from shopagent.infra.db.tables import (
     ConversationEventModel,
     CustomerModel,
     MessageModel,
-    OrderModel,
-    OutboxEventModel,
     PendingActionModel,
-    RefundModel,
 )
-from shopagent.infra.worker.outbox_worker import process_outbox_batch
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -43,79 +39,7 @@ async def res_session_factory():
     await engine.dispose()
 
 
-@pytest.mark.asyncio
-async def test_outbox_worker_idempotency_and_processing(res_session_factory):
-    """Verify outbox worker processes refund.execute events and is idempotent."""
-    async with res_session_factory() as session:
-        customer_id = uuid.uuid4()
-        order_id = uuid.uuid4()
-        refund_id = uuid.uuid4()
-
-        # Seed customer
-        cust = CustomerModel(
-            id=customer_id,
-            email="res@example.vn",
-            phone="0909999888",
-            full_name="Resilience Tester",
-        )
-        session.add(cust)
-
-        now = get_clock().now()
-        # Seed order and refund
-        order = OrderModel(
-            id=order_id,
-            code="SL-RES-01",
-            customer_id=customer_id,
-            status="delivered",
-            payment_method="bank_transfer",
-            payment_status="paid",
-            subtotal=300000,
-            discount_total=0,
-            shipping_fee=0,
-            total=300000,
-            placed_at=now,
-        )
-        session.add(order)
-
-        refund = RefundModel(
-            id=refund_id,
-            code="RF-RES-01",
-            order_id=order_id,
-            amount=150000,
-            status="processing",
-            attempts=0,
-        )
-        session.add(refund)
-
-        # Seed outbox event
-        event = OutboxEventModel(
-            id=uuid.uuid4(),
-            type="refund.execute",
-            payload={"refund_id": str(refund_id), "amount": 150000},
-            status="pending",
-            idempotency_key="rf-res-01-key",
-            next_attempt_at=now - timedelta(minutes=1),
-        )
-        session.add(event)
-        await session.commit()
-
-    # Run outbox worker batch
-    async with res_session_factory() as session:
-        processed = await process_outbox_batch(session)
-        assert processed == 1
-
-        # Check refund status succeeded
-        stmt_ref = select(RefundModel).where(RefundModel.id == refund_id)
-        res_ref = await session.execute(stmt_ref)
-        updated_ref = res_ref.scalar_one()
-        assert updated_ref.status == "succeeded"
-        assert updated_ref.gateway_txn_id is not None
-        assert updated_ref.gateway_txn_id.startswith("GW-")
-
-    # Second run should process 0 items (idempotent)
-    async with res_session_factory() as session:
-        processed_again = await process_outbox_batch(session)
-        assert processed_again == 0
+# Outbox delivery, payout retry and idempotency run through the real dispatcher in tests/unit/test_outbox_refunds.py.
 
 
 @pytest.mark.asyncio

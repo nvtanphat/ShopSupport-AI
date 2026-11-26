@@ -42,8 +42,10 @@ class OutboxDispatcher:
             for event in events:
                 handler = HANDLERS.get(event.type)
                 if not handler:
-                    # No registered handler; mark published to drain queue
+                    # Nothing to do for this type (a notification-only event): store it as published, or the next
+                    # poll would fetch it again and the loop would never sleep.
                     await outbox_repo.mark_published(event.id)
+                    await session.commit()
                     processed_count += 1
                     continue
 

@@ -33,6 +33,7 @@ from shopagent.infra.db.repositories.outbox_repo import OutboxRepository
 from shopagent.infra.db.repositories.refund_repo import RefundRepository
 from shopagent.infra.db.tables import (
     ApprovalRequestModel,
+    OrderModel,
     PendingActionModel,
     RefundModel,
 )
@@ -142,6 +143,30 @@ class CancellationService:
             "expires_at": action.expires_at.isoformat(),
         }
 
+    async def refund_cancelled_order(self, order: OrderModel) -> RefundModel | None:
+        """Refund the full amount of a cancelled order that was paid, and queue the payout for the worker.
+
+        Used by self-service cancellation and by a staff-approved cancellation of a packing order, so both refund.
+        """
+        if order.payment_status != PaymentStatus.PAID.value:
+            return None
+        refund = RefundModel(
+            id=generate_uuid(),
+            code=generate_refund_code(),
+            order_id=order.id,
+            amount=order.total,
+            breakdown={"reason": "order_cancelled", "total": order.total},
+            method="original",
+            status=RefundStatus.APPROVED.value,  # the cancellation itself was the approval
+        )
+        await self.refund_repo.save(refund)
+        await self.outbox_repo.add_event(
+            event_type="refund.disburse",
+            payload={"refund_id": str(refund.id), "order_id": str(order.id), "amount": order.total},
+            idempotency_key=f"disburse_{refund.id}",
+        )
+        return refund
+
     async def execute_cancellation(
         self, principal: Principal, action: PendingActionModel, preview_hash: str
     ) -> dict[str, Any]:
@@ -186,25 +211,7 @@ class CancellationService:
                 after_state={"status": order.status},
             )
 
-            # If paid, generate full refund
-            if order.payment_status == PaymentStatus.PAID.value:
-                refund = RefundModel(
-                    id=generate_uuid(),
-                    code=generate_refund_code(),
-                    order_id=order.id,
-                    amount=order.total,
-                    breakdown={"reason": "order_cancelled", "total": order.total},
-                    method="original",
-                    status=RefundStatus.APPROVED.value,  # Cancel before packing auto-approves refund
-                )
-                await self.refund_repo.save(refund)
-
-                # Outbox event for worker to disburse
-                await self.outbox_repo.add_event(
-                    event_type="refund.disburse",
-                    payload={"refund_id": str(refund.id), "order_id": str(order.id), "amount": order.total},
-                    idempotency_key=f"disburse_{refund.id}",
-                )
+            await self.refund_cancelled_order(order)
 
             action.status = PendingActionStatus.CONFIRMED.value
             action.result = {"status": "cancelled", "order_code": order.code}
