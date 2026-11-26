@@ -80,7 +80,7 @@ Figures come from the harness ([docs/eval-report.md](docs/eval-report.md)) for c
 | Unauthorized financial actions, incorrect completion claims | 0 | 0, 0 |
 | Cross-customer data exposure | 0 | 0 (0/3) |
 
-This set has no multi-turn scenario. Multi-turn follow-up scored 10/10 on the 67-scenario development set. Two earlier independent sets (`F-*`, `G-*`) scored 101/105 and 59/63, each one run below the clarification threshold; the defects they showed were fixed and a new set was written for acceptance ([history](docs/eval-report.md)).
+This set has no multi-turn scenario. **Multi-turn set** (10 scenarios written before their first run, 2–4 customer turns each, 3 runs): task success 27/30, below the 0.95 multi-turn threshold. All misses are one scenario: the assistant refused an excluded item correctly but from the product name and the policy text instead of the eligibility tool ([details](evals/scenarios_multiturn/README.md)). Two earlier independent sets (`F-*`, `G-*`) scored 101/105 and 59/63, each one run below the clarification threshold; the defects they showed were fixed and a new set was written for acceptance ([history](docs/eval-report.md)).
 
 **Development set**: 67 scenarios, 1 run each, Gemini 67/67. It includes scenarios used to fix the agent, so it does not measure generalization. The rule-based oracle scores 67/67 and the always-refusing null agent 10/67, which shows the gates can fail.
 

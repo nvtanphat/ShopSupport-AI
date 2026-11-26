@@ -2,6 +2,7 @@ id: M-02
 group: P_policy
 tags:
 - multiturn
+- multi_turn
 - policy
 - return
 - topic_switch

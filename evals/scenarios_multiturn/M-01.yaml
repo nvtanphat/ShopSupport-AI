@@ -2,6 +2,7 @@ id: M-01
 group: S_slots
 tags:
 - multiturn
+- multi_turn
 - return
 - slot_filling
 clock: '2026-11-26T10:00:00+07:00'

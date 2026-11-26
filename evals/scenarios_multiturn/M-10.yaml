@@ -2,6 +2,7 @@ id: M-10
 group: S_slots
 tags:
 - multiturn
+- multi_turn
 - return
 - slot_filling
 - defect

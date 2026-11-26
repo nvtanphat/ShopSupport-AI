@@ -2,6 +2,7 @@ id: M-06
 group: S_slots
 tags:
 - multiturn
+- multi_turn
 - return
 - item_choice
 clock: '2026-11-26T10:00:00+07:00'

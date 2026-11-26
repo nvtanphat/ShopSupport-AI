@@ -2,6 +2,7 @@ id: M-08
 group: E_escalation
 tags:
 - multiturn
+- multi_turn
 - escalation
 - refusal
 clock: '2026-11-26T10:00:00+07:00'

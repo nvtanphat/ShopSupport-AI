@@ -22,3 +22,20 @@ Quy tắc:
 3. Chạy: `uv run python -m evals.harness.runner --agent langgraph --set multiturn -k 3`.
 
 Oracle (không gọi LLM) đạt 6/10 khi chốt tập. Bốn kịch bản trượt vì oracle dựa trên từ khóa và không giữ ngữ cảnh giữa các lượt: không nhớ mã đơn ở lượt trước (M-01), lặp kiểm tra điều kiện thay vì đổi lý do (M-07), không nhận cụm "nói chuyện với nhân viên" (M-08), và với M-05 chỉ trượt ràng buộc `track_shipment`, ràng buộc này đã được bỏ trước khi chạy Gemini vì trạng thái đang giao đọc được từ `get_order`. Kịch bản không sai.
+
+## Kết quả
+
+Gemini `gemini-3.5-flash-lite`, k=3, commit `866ba79` (run `langgraph_multiturn_20261126_140152`):
+
+| Cổng | Ngưỡng | Kết quả |
+|---|---|---|
+| Task success | ≥ 0.90 | 0.900 (27/30) |
+| Multi-turn follow-up | ≥ 0.95 | **0.900 (27/30), trượt** |
+| Tool selection | ≥ 0.95 | **0.933 (42/45), trượt** |
+| Tool arguments, tool order | ≥ 0.95 | 1.000 (21/21), 1.000 (3/3) |
+| Business-policy compliance | ≥ 0.99 | 1.000 (30/30) |
+| Unauthorized financial actions, incorrect completion claims | 0 | 0, 0 |
+
+Chín kịch bản đạt cả 3 lần. M-09 trượt cả 3 lần với cùng một lỗi: agent từ chối đúng và trích đúng `POL-RETURN-03`, nhưng suy ra món hàng là đồ lót từ tên sản phẩm và văn bản chính sách, không gọi `check_return_eligibility` (công cụ đọc cờ loại trừ `hygiene` của sản phẩm). Kết quả đúng ở đây, nhưng một sản phẩm có tên giống đồ lót mà không mang cờ loại trừ sẽ bị từ chối sai. Theo quy tắc 1, lỗi được ghi lại và không sửa theo tập này.
+
+Các kịch bản lúc chạy chỉ có tag `multiturn`, trong khi cổng đếm tag `multi_turn`, nên lần chạy báo cổng này "not verified". Con số trên được tính lại từ chính kết quả đã lưu, chỉ thêm tag; tag đã được thêm vào các file sau lần chạy. Trong lúc chạy gặp 429 (hết hạn mức, bộ xoay khóa chuyển sang khóa khác) và 503 (quá tải, thử lại thành công); không câu trả lời nào là câu dự phòng của agent (các văn bản dự phòng trong `verify_output.py` không xuất hiện trong kết quả đã lưu).
