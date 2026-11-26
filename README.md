@@ -17,7 +17,7 @@ Payments, carrier tracking and SMS/OTP use built-in simulators by default (`INTE
 | Component | Implementation |
 |---|---|
 | Agent | LangGraph, 5 nodes, one agent with 11 tools, Gemini |
-| Retrieval | BM25 and BGE-M3 candidates, rank fusion, cross-encoder reranking, a threshold for out-of-scope questions |
+| Retrieval | BM25 candidates, cross-encoder reranking, a threshold for out-of-scope questions; optional BGE-M3 rank fusion |
 | Backend | FastAPI, PostgreSQL (SQLite for local development), transactional outbox, server-sent events |
 | Frontend | React, Vite, Tailwind: customer chat and staff portal |
 | Evaluation | Scenario harness with its own database and ground truth |
@@ -30,6 +30,8 @@ Payments, carrier tracking and SMS/OTP use built-in simulators by default (`INTE
 - **Checked tool arguments.** Before a tool runs, its arguments are compared with the conversation and earlier tool results: the order must be one the customer chose, items come from `get_order`, the return reason is stated by the customer or quoted from their words, and an exchange is only used when the customer asked for one. Otherwise the tool returns `MISSING_SLOT` and the assistant asks the customer.
 - **Checked replies.** Citations, amounts, order codes and "done" statements are compared with successful tool results and with actions the customer confirmed. A draft that does not match goes back to the model once; if it still does not match, a fixed fallback reply is shown.
 - **Bounded turns.** Each turn has limits on iterations, tool calls and time. When a detail is missing twice or the same business refusal repeats, tools are switched off and the assistant asks or explains.
+- **One execution per confirmation.** Confirming locks the proposal and then its order, so a double click, a retry or two proposals for one order cancel or refund once; a PostgreSQL test sends 6 confirmations at once (before the fix: 6 refunds, after: 1).
+- **Refund payouts through an outbox.** The worker pays approved refunds through the payment port and retries a refused payout up to 3 times with growing delays, each with its own idempotency key.
 - **Other safeguards.** Idempotency keys, row locks on conversation counters, ownership checks in services, prompt-injection screening, masking of card and ID numbers. See the [threat model](docs/threat-model.md).
 
 ## Architecture
@@ -52,17 +54,14 @@ One turn runs `load_context`, `screen_input`, `agent` (a bounded loop of model a
 ```mermaid
 flowchart LR
     Q[Question] --> N[Normalize]
-    N --> B[BM25]
-    N --> V[BGE-M3]
-    B --> F[Rank fusion]
-    V --> F
-    F --> R[Rerank 10 candidates]
+    N --> B[BM25 candidates]
+    B --> R[Rerank up to 10 candidates]
     R --> T{Score above threshold}
     T -->|yes| A[Clauses with version and date]
     T -->|no| X[No clause covers the question]
 ```
 
-With the current 10 clauses and 10 reranker candidates, the candidate stage selects every clause, so the BGE-M3 and rank-fusion steps do not change the result: the output equals BM25 as a gate followed by the reranker over all clauses. The vector stage starts to matter once the corpus has more clauses than reranker candidates. It costs about 0.6 GB of disk, 1.1 GB of memory and 150 ms per question, and `RETRIEVAL_EMBEDDING_ENABLED=false` turns it off.
+A BGE-M3 vector stage with rank fusion is implemented but off by default. Fusion only reorders the BM25 candidates, and with 10 clauses BM25 never returns more than the 10 the reranker scores, so the reranker sees the same clauses either way. On the retrieval sets the results were identical with and without it, while it costs about 0.6 GB of disk, 1.1 GB of memory and 150 ms per question. `RETRIEVAL_EMBEDDING_ENABLED=true` turns it on for a larger corpus.
 
 Agent tools: `search_policy`, `lookup_order_guest`, `list_my_orders`, `get_order`, `track_shipment`, `check_return_eligibility`, `check_variant_stock`, `get_case_status`, `propose_cancel_order`, `propose_return`, `escalate_to_human`. Tools are filtered by the caller's role, and none of them confirms a proposal or changes order or payment state.
 
@@ -87,7 +86,7 @@ This set has no multi-turn scenario. Multi-turn follow-up scored 10/10 on the 67
 
 **Retrieval**: 48 held-out questions (28 answerable, 20 out of scope): Recall@1 0.929, Recall@4 0.982, 20/20 out-of-scope questions rejected, 0/28 answerable questions rejected.
 
-**Tests**: 422 backend tests including PostgreSQL, 30 frontend unit tests, 17 browser journeys, and 16 of 16 live business scenarios through the HTTP API, PostgreSQL, Gemini and the retrieval models.
+**Tests**: 438 backend tests including PostgreSQL, 31 frontend unit tests, 17 browser journeys, and 16 of 16 live business scenarios through the HTTP API, PostgreSQL, Gemini and the retrieval models.
 
 **Limitations**
 - Scenarios were written by the project team, and the acceptance set is small. The results describe these scenarios, not a success rate with real customers.
@@ -111,7 +110,7 @@ uv run python -m shopagent.worker          # outbox worker, separate terminal
 npm --prefix frontend run dev              # http://localhost:5173
 ```
 
-The first start downloads the retrieval models (about 1.1 GB) to `.cache/fastembed`. `seed` drops and recreates all tables: development only. On Windows set `PYTHONUTF8=1`, and start the API with `--loop asyncio:SelectorEventLoop` when it uses PostgreSQL.
+The first start downloads the reranker model (about 0.6 GB) to `.cache/fastembed`. `seed` drops and recreates all tables: development only. On Windows set `PYTHONUTF8=1`, and start the API with `--loop asyncio:SelectorEventLoop` when it uses PostgreSQL.
 
 Demo accounts: customer `customer1@example.com` / `pass123`; staff `agent@shop.vn` or `supervisor@shop.vn` / `staff123`; administrator `admin@shop.vn` / `admin123`. [Demo data](docs/demo-data.md) describes 24 fixed orders. Settings are listed in [.env.example](.env.example), `config/policy/rules.yaml`, `config/models.yaml` and `config/app.yaml`.
 
