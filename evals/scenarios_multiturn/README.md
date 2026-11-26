@@ -59,3 +59,5 @@ Gemini trên code đã sửa:
 | Tập phát triển, 68 kịch bản, k=1, run `langgraph_20261126_153950` | 67/68, mọi cổng đạt |
 
 Lần trượt duy nhất ở tập phát triển là RET-EXCL-002 (đạt 3/4 lần trên code cuối): câu trả lời đúng nội dung nhưng thiếu thẻ trích dẫn `[POL-RETURN-03]`. Thay đổi đầu tiên (chỉ có yêu cầu gọi công cụ) làm kịch bản này trượt 3/3 vì agent chỉ hỏi lý do mà không nói hàng bị loại trừ; thay đổi thứ hai sửa điều đó.
+
+Tập acceptance chạy lại trên code đã sửa (k=3, run `langgraph_acceptance_20261126_162107`): 46/48, trước đó 48/48. Hai lần trượt đều là A-SLOT-02 (khách chưa nêu lý do): agent hỏi "sản phẩm bị lỗi hay bạn đổi ý?" mà không có từ bộ chấm tìm ("lý do", "nguyên nhân", "vì sao", "tại sao"), nên cổng hỏi lại trượt (4/6). Bản sửa làm agent luôn gọi kiểm tra điều kiện trước, và cách hỏi đổi theo. Theo quy tắc của tập acceptance, không sửa bộ chấm hay agent theo kết quả này.
