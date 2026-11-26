@@ -8,7 +8,7 @@ A customer-support assistant for an e-commerce shop. It answers policy questions
 
 The language model does not write to the database. It creates a proposal that expires after 30 minutes; the change is made only when the customer confirms it through the authenticated API, and the domain services re-check eligibility and compute amounts in code at that point.
 
-![A return proposal card: nothing changes until the customer confirms](docs/images/customer-proposal.png)
+![Cancelling an order: the assistant proposes, the customer confirms, and the order then shows as cancelled](docs/images/cancel-flow.gif)
 
 Payments, carrier tracking and SMS/OTP use built-in simulators by default (`INTEGRATION_MODE=simulated`), so no money moves. See [integration modes](docs/integration-modes.md). More screenshots are in [docs/images/](docs/images/).
 
@@ -21,6 +21,7 @@ Payments, carrier tracking and SMS/OTP use built-in simulators by default (`INTE
 | Backend | FastAPI, PostgreSQL (SQLite for local development), transactional outbox, server-sent events |
 | Frontend | React, Vite, Tailwind: customer chat and staff portal |
 | Evaluation | Scenario harness with its own database and ground truth |
+| MCP server | The customer tools over the Model Context Protocol (stdio), without a confirm tool |
 
 ## Design
 
@@ -113,6 +114,28 @@ npm --prefix frontend run dev              # http://localhost:5173
 The first start downloads the retrieval models (about 1.1 GB) to `.cache/fastembed`. `seed` drops and recreates all tables: development only. On Windows set `PYTHONUTF8=1`, and start the API with `--loop asyncio:SelectorEventLoop` when it uses PostgreSQL.
 
 Demo accounts: customer `customer1@example.com` / `pass123`; staff `agent@shop.vn` or `supervisor@shop.vn` / `staff123`; administrator `admin@shop.vn` / `admin123`. [Demo data](docs/demo-data.md) describes 24 fixed orders. Settings are listed in [.env.example](.env.example), `config/policy/rules.yaml`, `config/models.yaml` and `config/app.yaml`.
+
+## MCP server
+
+`shopagent.mcp_server` exposes 10 of the agent's tools to MCP clients such as Claude Desktop or Cursor, signed in as one customer: policy search, orders, shipment tracking, return eligibility, stock, case status, the two `propose_*` tools and `escalate_to_human`. The tools, input schemas, access checks and refusals are the agent's own (`create_tools`).
+
+The server has no confirm tool. `propose_cancel_order` and `propose_return` create the same expiring proposal as in the chat, and the order changes only when the customer sends `POST /actions/{id}/confirm` with their own sign-in. A client's model therefore cannot carry out a cancellation or a return by itself.
+
+```json
+{
+  "mcpServers": {
+    "shopagent": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/shop-support-agent", "--extra", "rerank", "python", "-m", "shopagent.mcp_server"],
+      "env": { "SHOPAGENT_MCP_EMAIL": "customer1@example.com", "SHOPAGENT_MCP_PASSWORD": "pass123" }
+    }
+  }
+}
+```
+
+The database is the one in `DATABASE_URL`. Each server process opens its own conversation for its proposals and tickets. Limitations:
+- The web chat does not list that conversation, so a proposal made through MCP is confirmed through the API rather than from a card in the web app.
+- The chat agent's argument and reply checks do not run, because the client's model calls the tools directly. The domain checks and the confirmation step still apply.
 
 ## Testing
 
