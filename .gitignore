@@ -68,3 +68,6 @@ SHOP_SUPPORT_AGENT_IMPLEMENTATION_PLAN_2026.md
 
 # Downloaded retrieval models (config FASTEMBED_CACHE_PATH)
 .cache/
+
+# Portfolio captures (regenerate with scripts/portfolio_capture/run.py)
+portfolio-assets/

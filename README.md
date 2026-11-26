@@ -8,7 +8,7 @@ A customer-support assistant for an e-commerce shop. It answers policy questions
 
 The language model does not write to the database. It creates a proposal that expires after 30 minutes; the change is made only when the customer confirms it through the authenticated API, and the domain services re-check eligibility and compute amounts in code at that point.
 
-![A return proposal card: nothing changes until the customer confirms](docs/images/customer-proposal.png)
+![Cancelling an order: the assistant proposes, the customer confirms, and the order then shows as cancelled](docs/images/cancel-flow.gif)
 
 Payments, carrier tracking and SMS/OTP use built-in simulators by default (`INTEGRATION_MODE=simulated`), so no money moves. See [integration modes](docs/integration-modes.md). More screenshots are in [docs/images/](docs/images/).
 
